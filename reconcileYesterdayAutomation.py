@@ -9,13 +9,14 @@ import os
 import sys
 
 
-def getLastWorkingDate():
+def getDateStrings():
     """
-    Gets the date for which the query should be run,
+    Gets the dates for which the query should be run,
     by calculating the previous working day.
 
     Returns:
-        dateString (str): Last working day in YYYY/MM/DD format
+        yesterdayString (str): Last working day in YYYY/MM/DD format
+        todayString (str): Current working day in YYYY/MM/DD format
     """
 
     # Gets the day that it is currently (Monday = 0, Sunday = 6)
@@ -29,13 +30,16 @@ def getLastWorkingDate():
         # Tuesday–Friday → go back one day
         lastWorkingDay = today - timedelta(days=1)
 
-    # Return date in the format that SQL expects
-    dateString = lastWorkingDay.strftime('%Y/%m/%d')
-    print(dateString)
-    return dateString
+    # Return dates in the format that SQL expects
+    yesterdayString = lastWorkingDay.strftime('%Y/%m/%d')
+    todayString = today.strftime('%Y/%m/%d')
+    print(yesterdayString)
+    print(todayString)
+
+    return yesterdayString, todayString
 
 
-def getData(query, dateString):
+def getData(generalQuery, bankTransferQuery, yesterdayString, todayString):
     """
 
     """
@@ -59,18 +63,24 @@ def getData(query, dateString):
         f"PWD={pwd};"
     )
 
-    # Connect to database and execute query
+    # Connect to database and execute queries, combining their results
     try:
-        with pyodbc.connect(conn_str, timeout=5) as conn:
+        with pyodbc.connect(conn_str) as conn:
             with conn.cursor() as cursor:
-                cursor.execute(query, dateString, dateString)
-                rows = cursor.fetchall()
+                cursor.execute(generalQuery, yesterdayString, yesterdayString)
+                generalRows = cursor.fetchall()
+
+                cursor.execute(bankTransferQuery, todayString, todayString)
+                bankTransferRows = cursor.fetchall()
+
+                rows = generalRows + bankTransferRows
 
     # Log any errors
     except Exception as e:
         logErrorAndExit(e)
 
     return rows
+
 
 def calculateTotals(rows):
     """
@@ -165,7 +175,7 @@ def sendEmail(content):
     msg['To'] = os.getenv('SMTP_RECIPIENT')
 
     # Set message content
-    msg.set_content('Anything you want in the email body?\nThese numbers should be accurate (i cross checked with BIDS) but this is still in the final testing stage so please let me know if you would like anything else added/changed.')
+    msg.set_content('The attachment contains the results of the RepGen reports used to complete the bank balances summary spreadsheet.')
 
     # Attach CSV
     msg.add_attachment(
@@ -209,8 +219,21 @@ def main():
     # Load securely stored credentials for DB and SMTP access
     load_dotenv()
    
-    # Define query that extracts relevant data
-    query = '''
+    # Define queries that extract relevant data
+    generalQuery = '''
+    SELECT
+        FORMAT(tblClientsLedger.gross, 'N2') AS [Gross],
+        tblClientsLedger.paymentType         AS [Type]
+
+    FROM
+        tblClientsLedger
+
+    WHERE
+        ISNULL(tblClientsLedger.tranDate, '') BETWEEN ? AND ?
+        AND ISNULL(tblClientsLedger.cashOffice, '') != 'vendor statements'
+    '''
+
+    bankTransferQuery = '''
     SELECT
         FORMAT(tblClientsLedger.gross, 'N2') AS [Gross],
         tblClientsLedger.paymentType         AS [Type]
@@ -225,7 +248,7 @@ def main():
     '''
 
     # Main process
-    dateString = getLastWorkingDate()
+    yesterdayString, todayString = getDateStrings()
     rows = getData(query, dateString)
     totals = calculateTotals(rows)
     content = dumpToCSV(totals)
