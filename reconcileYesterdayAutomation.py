@@ -45,7 +45,6 @@ def getData(generalQuery, bankTransferQuery, yesterdayString, todayString):
     """
 
     # Initialise DB connection, ensuring all necessary credentials exist
-    pyodbc.pooling = False
     server = os.getenv("SQL_SERVER")
     database = os.getenv("SQL_DATABASE")
     uid = os.getenv("SQL_UID")
@@ -92,6 +91,9 @@ def calculateTotals(rows):
         rows (list of (str,str) tuples): each individual payment from the last working
             day, where the first is a string representation of the amount, and the 
             second is the type of payment
+
+    Returns:
+        
     """
 
     cardTotal = 0
@@ -115,8 +117,8 @@ def calculateTotals(rows):
             case 'bank transfer': bankTotal -= amount
             case _ : pass
 
-    print(cardTotal, sageTotal, cashTotal, chequeTotal, bankTotal)
-    return (cardTotal, sageTotal, cashTotal, chequeTotal, bankTotal)
+    # Return each total rounded to 2 decimal places
+    return (round(cardTotal, 2), round(sageTotal, 2), round(cashTotal, 2), round(chequeTotal, 2), round(bankTotal, 2))
 
 
 def dumpToCSV(totals):
@@ -230,6 +232,7 @@ def main():
 
     WHERE
         ISNULL(tblClientsLedger.tranDate, '') BETWEEN ? AND ?
+        AND ISNULL(tblClientsLedger.paymentType, '') != 'Bank Transfer'
         AND ISNULL(tblClientsLedger.cashOffice, '') != 'vendor statements'
     '''
 
@@ -249,7 +252,7 @@ def main():
 
     # Main process
     yesterdayString, todayString = getDateStrings()
-    rows = getData(query, dateString)
+    rows = getData(generalQuery, bankTransferQuery, yesterdayString, todayString)
     totals = calculateTotals(rows)
     content = dumpToCSV(totals)
     sendEmail(content)
