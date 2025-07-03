@@ -41,7 +41,17 @@ def getDateStrings():
 
 def getData(generalQuery, bankTransferQuery, yesterdayString, todayString):
     """
+    Executes SQL queries to retrieve payment data for the previous working day.
 
+    Args:
+        generalQuery (str): SQL query for non-bank-transfer payments.
+        bankTransferQuery (str): SQL query for bank transfer payments.
+        yesterdayString (str): Last working day in 'YYYY/MM/DD' format.
+        todayString (str): Current day in 'YYYY/MM/DD' format.
+
+    Returns:
+        list: Combined list of rows from both queries.
+              Each row is a tuple containing (str amount, str payment type).
     """
 
     # Initialise DB connection, ensuring all necessary credentials exist
@@ -83,17 +93,14 @@ def getData(generalQuery, bankTransferQuery, yesterdayString, todayString):
 
 def calculateTotals(rows):
     """
-    Takes each of yesterdays payments and sums them by type.
-    Flips each of these values negative for reasons unbeknown to me
-    but I was told that that's how they are entered into the spreadsheet.
+    Aggregates and negates payment totals by type.
 
     Args:
-        rows (list of (str,str) tuples): each individual payment from the last working
-            day, where the first is a string representation of the amount, and the 
-            second is the type of payment
+        rows (list): List of tuples containing (amount, payment type) as strings.
 
     Returns:
-        
+        tuple: A tuple of 5 floats representing the negated totals for:
+               (cardTotal, sageTotal, cashTotal, chequeTotal, bankTotal)
     """
 
     cardTotal = 0
@@ -123,18 +130,14 @@ def calculateTotals(rows):
 
 def dumpToCSV(totals):
     """
-    Converts given data into a CSV format stored in an in-memory bytes buffer.
-
-    Writes the column headings and rows to a UTF-8 encoded CSV file in memory,
-    suitable for use as an email attachment or other in-memory processing.
+    Converts payment totals into a UTF-8 encoded CSV in memory.
 
     Args:
-        totals (tuple of 5 floats): The totals to be written to the CSV.
+        totals (tuple): Tuple of 5 floats for Card, SagePay, Cash, Cheque, Bank Transfer.
 
     Returns:
-        io.BytesIO: A bytes buffer containing the CSV data, ready for reading.
+        io.BytesIO: In-memory bytes buffer containing the CSV file content.
     """
-
     headings = ('Card', 'Sagepay', 'Cash', 'Cheque', 'Bank Transfer')
 
     # Initialise bytes object to be sent as email attachment
@@ -157,11 +160,13 @@ def dumpToCSV(totals):
 
 def sendEmail(content):
     """
-    Constructs and sends an email via SMTP with a CSV attachment containing yesterday's numbers.
-    Logs the success or failure of the email send operation to "logs.txt".
+    Sends an email with the CSV report attached via SMTP.
 
     Args:
-        content (io.BytesIO): In-memory bytes buffer containing the CSV data to attach.
+        content (io.BytesIO): In-memory buffer containing CSV data.
+
+    Raises:
+        Logs and exits the script if email sending fails.
     """
 
     # SMTP configuration (gets credentials from .env file so as not to hard code them in the script)
@@ -202,10 +207,10 @@ def sendEmail(content):
 
 def logErrorAndExit(e):
     """
-    Logs error message in file logs.txt, then exits the script.
+    Logs an error message and exits the script.
 
     Args:
-        e (Exception): Error message.
+        e (Exception): The exception or error message to log.
     """
 
     with open("logs.txt", "a") as logs:
@@ -215,7 +220,13 @@ def logErrorAndExit(e):
 
 def main():
     """
-.
+    Main script execution flow:
+        1. Loads environment variables.
+        2. Defines SQL queries.
+        3. Calculates relevant dates.
+        4. Retrieves and processes data.
+        5. Converts data to CSV.
+        6. Sends the email with CSV attached.
     """
 
     # Load securely stored credentials for DB and SMTP access
