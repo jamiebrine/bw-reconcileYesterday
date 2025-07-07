@@ -33,9 +33,6 @@ def getDateStrings():
     # Return dates in the format that SQL expects
     yesterdayString = lastWorkingDay.strftime('%Y/%m/%d')
     todayString = today.strftime('%Y/%m/%d')
-    print(yesterdayString)
-    print(todayString)
-
     return yesterdayString, todayString
 
 
@@ -177,7 +174,7 @@ def sendEmail(content):
 
     # Create the email message
     msg = EmailMessage()
-    msg['Subject'] = f'Yesterday\'s numbers (you choose the subject)'
+    msg['Subject'] = f'Yesterday\'s payment details'
     msg['From'] = username
     msg['To'] = os.getenv('SMTP_RECIPIENT')
 
