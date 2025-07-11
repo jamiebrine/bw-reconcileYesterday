@@ -118,7 +118,7 @@ def calculateTotals(rows):
             case 'sage pay': sageTotal -= amount
             case 'cash': cashTotal -= amount
             case 'cheque': chequeTotal -= amount
-            case 'bank transfer': bankTotal -= amount
+            case 'bank transfer': bankTotal += amount
             case _ : pass
 
     # Return each total rounded to 2 decimal places
@@ -239,7 +239,7 @@ def main():
         tblClientsLedger
 
     WHERE
-        ISNULL(tblClientsLedger.tranDate, '') BETWEEN ? AND ?
+        ISNULL(CAST(tblClientsLedger.tranDate AS DATE), '') BETWEEN ? AND ?
         AND ISNULL(tblClientsLedger.paymentType, '') != 'Bank Transfer'
         AND ISNULL(tblClientsLedger.cashOffice, '') != 'vendor statements'
     '''
@@ -253,8 +253,8 @@ def main():
         tblClientsLedger
 
     WHERE
-        ISNULL(tblClientsLedger.tranDate, '') < ?
-        AND ISNULL(tblClientsLedger.postingDate, '') BETWEEN ? AND '2099/12/31'
+        ISNULL(CAST(tblClientsLedger.tranDate AS DATE), '') < ?
+        AND ISNULL(CAST(tblClientsLedger.postingDate AS DATE), '') BETWEEN ? AND '2099/12/31'
         AND ISNULL(tblClientsLedger.cashOffice, '') != 'vendor statements'
     '''
 
